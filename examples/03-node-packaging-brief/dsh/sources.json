@@ -1,0 +1,135 @@
+[
+  {
+    "id": "S1",
+    "title": "Node.js 官方文档：Single executable applications（总览与稳定性）",
+    "url": "https://nodejs.org/api/single-executable-applications.html",
+    "accessed": "2026-10-20",
+    "claim": "Node.js 官方把 SEA 标为 Stability 1.1（Active development）；该特性于 v19.7.0 与 v18.16.0 引入，做法是把 node 自身准备好的 blob 注入 node 二进制，启动时若检测到 blob 就执行其中的脚本。"
+  },
+  {
+    "id": "S2",
+    "title": "Node.js 官方文档：--build-sea 与配置字段",
+    "url": "https://nodejs.org/api/single-executable-applications.html#-build-sea",
+    "accessed": "2026-10-20",
+    "claim": "v25.5.0 起可用 node --build-sea sea.json 一条命令生成单文件可执行程序；配置支持 main、mainFormat、executable、output、assets、useVfs、vfsArchive、useSnapshot、useCodeCache、execArgv 等字段，且生成 blob 的 Node 版本必须与接收注入的二进制一致。"
+  },
+  {
+    "id": "S3",
+    "title": "Node.js 官方文档：SEA 的平台支持",
+    "url": "https://nodejs.org/api/single-executable-applications.html#platform-support",
+    "accessed": "2026-10-20",
+    "claim": "SEA 的 CI 只覆盖三类平台：Windows；macOS（仅 arm64，x64 不受支持且在测试中被跳过）；Linux（除 Alpine 外的发行版、除 s390x 外的架构）。"
+  },
+  {
+    "id": "S4",
+    "title": "Node.js 官方文档：SEA 的 Assets 与 VFS",
+    "url": "https://nodejs.org/api/single-executable-applications.html#assets",
+    "accessed": "2026-10-20",
+    "claim": "assets 字段把文件打进准备 blob，运行时用 node:sea 的 getAsset／getAssetAsBlob／getRawAsset／getAssetKeys 读取；v26.9.0 起 useVfs 把资源挂成只读虚拟文件系统，可用 __dirname 相对路径通过 node:fs 读取，也支持用 vfsArchive 直接嵌入 ZIP。"
+  },
+  {
+    "id": "S5",
+    "title": "Node.js 官方文档：注入脚本的模块加载与路径语义",
+    "url": "https://nodejs.org/api/single-executable-applications.html#module-loading-in-the-injected-main-script",
+    "accessed": "2026-10-20",
+    "claim": "注入的主脚本默认只能加载内建模块，从文件系统加载会抛错，因此官方建议先把应用打包成单个 JS；__filename 与 module.filename 等于 process.execPath，__dirname 等于该路径所在目录；import() 只能动态加载内建模块。"
+  },
+  {
+    "id": "S6",
+    "title": "Node.js 官方文档：原生插件与签名步骤",
+    "url": "https://nodejs.org/api/single-executable-applications.html#using-native-addons-in-the-injected-main-script",
+    "accessed": "2026-10-20",
+    "claim": "原生插件须作为 asset 打包，运行时写入临时文件再用 process.dlopen 加载；生成可执行文件后需重签：macOS 用 codesign --sign -，Windows 用 signtool（可选，未签名的产物仍可运行）。"
+  },
+  {
+    "id": "S7",
+    "title": "Node.js 官方文档：注入脚本的 ESM 支持",
+    "url": "https://nodejs.org/api/single-executable-applications.html#module-format-of-the-injected-main-script",
+    "accessed": "2026-10-20",
+    "claim": "配置 mainFormat 为 module 时注入脚本按 ESM 解释，import.meta 可用但 import.meta.resolve 尚不支持，且 mainFormat=module 不能与 useSnapshot 同时使用。"
+  },
+  {
+    "id": "S8",
+    "title": "Node.js 发布日程（各版本现状）",
+    "url": "https://nodejs.org/en/about/previous-releases",
+    "accessed": "2026-10-20",
+    "claim": "截至抓取时 v26.12.0 为 Current（2026-10-14 更新），v24.22.0 为 LTS（2026-10-14 更新），v20.20.2 已于 2026-03-24 进入 EOL，v22.23.3 仍为 LTS。"
+  },
+  {
+    "id": "S9",
+    "title": "GitHub API：vercel/pkg 仓库元数据",
+    "url": "https://api.github.com/repos/vercel/pkg",
+    "accessed": "2026-10-20",
+    "claim": "vercel/pkg 仓库的 archived 字段为 true，pushed_at 为 2024-01-03，open_issues_count 为 0。"
+  },
+  {
+    "id": "S10",
+    "title": "GitHub API：vercel/pkg 最新 Release",
+    "url": "https://api.github.com/repos/vercel/pkg/releases?per_page=1",
+    "accessed": "2026-10-20",
+    "claim": "pkg 最新一条 GitHub Release 的 tag 为 5.8.1，published_at 为 2023-03-08。"
+  },
+  {
+    "id": "S11",
+    "title": "pkg 5.8.1 README（目标、assets、快照文件系统、原生插件、压缩、签名）",
+    "url": "https://unpkg.com/pkg@5.8.1/README.md",
+    "accessed": "2026-10-20",
+    "claim": "pkg 的 --targets 支持 node8、node10、node12、node14、node16 与 latest，平台含 alpine/linux/linuxstatic/win/macos，架构 x64/arm64（armv6/armv7 未支持）；资源由 package.json 的 pkg.assets／pkg.scripts 以 glob 指定；运行时路径位于 /snapshot/，__dirname 变为 /snapshot/...；.node 文件会被解压到磁盘临时文件并在下次启动复用；--compress 最多可把内嵌文件系统缩小 60%；macos-arm64 为实验性且必须签名。"
+  },
+  {
+    "id": "S12",
+    "title": "GitHub API：pkg 的 ESM 支持 PR #1323",
+    "url": "https://api.github.com/repos/vercel/pkg/pulls/1323",
+    "accessed": "2026-10-20",
+    "claim": "标题为 feat: ESM modules support 的 PR #1323 处于 closed 状态且 merged 为 false，即未被合并进 pkg。"
+  },
+  {
+    "id": "S13",
+    "title": "GitHub API：pkg-fetch v3.5 发布的 Node 基础二进制体积",
+    "url": "https://api.github.com/repos/vercel/pkg-fetch/releases/latest",
+    "accessed": "2026-10-20",
+    "claim": "pkg-fetch v3.5 的 Node 基础二进制资产量级为 20–50 MB，例如 node-v14.21.3-win-arm64 为 22618112 字节、node-v16.19.1-alpine-x64 为 47848768 字节。"
+  },
+  {
+    "id": "S14",
+    "title": "GitHub API：nexe/nexe 仓库元数据",
+    "url": "https://api.github.com/repos/nexe/nexe",
+    "accessed": "2026-10-20",
+    "claim": "nexe/nexe 未归档（archived 为 false），pushed_at 为 2026-03-05，open_issues_count 为 163。"
+  },
+  {
+    "id": "S15",
+    "title": "GitHub API：nexe 最新 Release",
+    "url": "https://api.github.com/repos/nexe/nexe/releases?per_page=1",
+    "accessed": "2026-10-20",
+    "claim": "nexe 最新一条 GitHub Release 的 tag 为 v3.3.3，created_at 为 2020-06-22；该 Release 附带大量预编译 Node 基础二进制资产，单个约 37–43 MB（如 alpine-x64-10.0.0 为 38768904 字节）。"
+  },
+  {
+    "id": "S16",
+    "title": "npm registry：nexe 的 latest 版本",
+    "url": "https://registry.npmjs.org/nexe/latest",
+    "accessed": "2026-10-20",
+    "claim": "nexe 在 npm 上的 latest 标签指向 5.0.0-beta.4（预发布版本），engines.node 为 >=10。"
+  },
+  {
+    "id": "S17",
+    "title": "nexe 5.0.0-beta.4 README（资源嵌入、原生模块、构建方式）",
+    "url": "https://unpkg.com/nexe@5.0.0-beta.4/README.md",
+    "accessed": "2026-10-20",
+    "claim": "nexe 用 -r/--resource 的 glob 把资源嵌入二进制，应用内用 fs.readFile／readFileSync 读取；原生模块的二进制必须与 nexe 生成的二进制一起分发；预编译二进制从 Releases 下载，或用 --build 从 Node 源码构建。"
+  },
+  {
+    "id": "S18",
+    "title": "Bun 文档：Single-file executable（对照项）",
+    "url": "https://bun.com/docs/bundler/executables",
+    "accessed": "2026-10-20",
+    "claim": "bun build --compile 把入口文件、其依赖以及一份 Bun 运行时打包成单文件可执行程序，并可用 --target 交叉编译到 linux／windows／macOS 的 x64 与 arm64。"
+  },
+  {
+    "id": "S19",
+    "title": "Apple Developer：分发前对 macOS 软件进行公证",
+    "url": "https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution",
+    "accessed": "2026-10-20",
+    "claim": "Apple 的开发者文档要求 macOS 软件在分发前完成公证（notarization），该页面即公证流程的官方入口。"
+  }
+]

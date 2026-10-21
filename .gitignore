@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# scratch directories used by the timeout wrapper
+_run-tmp/
+.run-tmp/
+*.tmp
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# local editor settings
+.vscode/
+.idea/

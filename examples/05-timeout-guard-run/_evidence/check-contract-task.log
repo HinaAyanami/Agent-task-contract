@@ -1,0 +1,12 @@
+--- check-contract.js v2.1 (--no-task) ---
+checked 11 sections, 13 refs, 0 errors
+exit=0
+
+--- check-contract.js with TASK.md declaring 13 (auto-detect) ---
+error TASK.md:L1: TASK.md 声明字段数 13，与 §6 示例实际 12 个字段不一致（原文：「report.json（§6 全部 13 个字段）」；示例见契约 L93）
+checked 11 sections, 13 refs, 1 errors
+exit=1
+
+--- check-contract.js with TASK.md declaring 12 (auto-detect) ---
+checked 11 sections, 13 refs, 0 errors
+exit=0

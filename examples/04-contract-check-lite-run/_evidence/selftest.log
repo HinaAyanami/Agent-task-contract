@@ -1,0 +1,10 @@
+﻿error L5: 无法解析引用 §9（原文：「参见 §1、§9 与 §2.1。」）
+error L5: 无法解析引用 §2.1（原文：「参见 §1、§9 与 §2.1。」）
+error L7: 顶层编号不连续：缺少 2（章节 3「缺号」之前）
+error L10: JSON 解析失败（代码块起于 L9）：Expected double-quoted property name in JSON at position 8 (line 1 column 9)
+error L13: 顶层编号不连续：缺少 4, 5（章节 6「证据格式」之前）
+error L22: report.json 示例缺少字段 "notes"（字段清单来源：正文清单）
+error L28: 章节号 3 重复定义（首次出现在 L7）
+error L28: 顶层编号不连续：章节 3「重复」出现在预期 7 的位置
+checked 4 sections, 3 refs, 8 errors
+

@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/HinaAyanami/Agent-task-contract/REPORT.schema.json",
+  "title": "Agent Task Contract — execution report",
+  "description": "The 12 required fields of _evidence/report.json (SPEC.md §6). Additional properties are allowed: executors may add their own evidence fields, but these 12 must be present.",
+  "type": "object",
+  "required": [
+    "deliverables",
+    "test_cmd",
+    "exit_code",
+    "passed",
+    "failed",
+    "budget_used_min",
+    "selfcheck_runs",
+    "long_run_used",
+    "tests_modified",
+    "deliverable_check",
+    "status",
+    "notes"
+  ],
+  "properties": {
+    "deliverables": {
+      "type": "array",
+      "description": "Files produced by this task, as declared in the task brief.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "test_cmd": {
+      "type": "string",
+      "description": "The exact acceptance command that was run."
+    },
+    "exit_code": {
+      "type": "integer",
+      "description": "Exit code of the acceptance command. 0 means passed."
+    },
+    "passed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of passing checks reported by the executor's own suite."
+    },
+    "failed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of failing checks. Must be 0 when status is 'passed'."
+    },
+    "budget_used_min": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Wall-clock minutes consumed, measured from the dispatch timestamp in the task brief."
+    },
+    "selfcheck_runs": {
+      "type": "object",
+      "description": "Self-check runs counted per class. The same class reaching 3 means failed_selfcheck_limit.",
+      "required": ["selftest", "url", "visual"],
+      "properties": {
+        "selftest": { "type": "integer", "minimum": 0 },
+        "url": { "type": "integer", "minimum": 0 },
+        "visual": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "long_run_used": {
+      "type": "array",
+      "description": "Long-running commands actually executed, with measured seconds.",
+      "items": {
+        "type": "object",
+        "required": ["cmd", "seconds"],
+        "properties": {
+          "cmd": { "type": "string" },
+          "seconds": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": true
+      }
+    },
+    "tests_modified": {
+      "type": "boolean",
+      "description": "True if the executor changed its own tests. A diff and rationale must then be attached; otherwise the check does not count as passed."
+    },
+    "deliverable_check": {
+      "type": "array",
+      "description": "Self-reported presence check for each declared deliverable. Independently re-checked by the coordinator.",
+      "items": {
+        "type": "object",
+        "required": ["item", "present"],
+        "properties": {
+          "item": { "type": "string", "minLength": 1 },
+          "present": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "status": {
+      "type": "string",
+      "description": "Final status. 'failed_selfcheck_limit' is reserved for exceeding the per-class self-check limit.",
+      "enum": ["passed", "failed", "failed_selfcheck_limit", "partial", "stopped"]
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes: what was done, what failed, what was left over. Do not rely on assistantText; this field is the durable record."
+    }
+  },
+  "additionalProperties": true
+}

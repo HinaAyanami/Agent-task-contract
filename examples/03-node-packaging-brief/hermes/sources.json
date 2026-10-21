@@ -1,0 +1,44 @@
+[
+  {
+    "id": "S1",
+    "title": "Node.js — Single executable applications (v26.12.0 Documentation)",
+    "url": "https://nodejs.org/api/single-executable-applications.html",
+    "accessed": "2026-10-20",
+    "claim": "SEA 自 v19.7.0/v18.16.0 提供，Stability 1.1；支持 CJS 或 ESM 单入口；v25.5.0 加入 --build-sea；v26.9.0 加入 useVfs（只读，写操作 EROFS）；assets 与原生模块需运行时落盘临时文件；CI 仅覆盖 Windows、macOS arm64、非 Alpine Linux（不含 s390x）；不支持交叉编译；macOS 需 codesign 去签名后重签，Windows 可选 signtool；__dirname 指向虚拟位置。"
+  },
+  {
+    "id": "S2",
+    "title": "vercel/pkg — README（弃用声明）",
+    "url": "https://github.com/vercel/pkg",
+    "accessed": "2026-10-20",
+    "claim": "pkg 已弃用，5.8.1 为最后一个版本；仓库于 2024-01-13 被所有者归档，转为只读。"
+  },
+  {
+    "id": "S3",
+    "title": "vercel/pkg — Releases",
+    "url": "https://github.com/vercel/pkg/releases",
+    "accessed": "2026-10-20",
+    "claim": "pkg 发布记录中包含 pkg-fetch 对 Node 14.20.0、16.16.0、18.5.0 的预编译二进制支持，18.5.0 是所列的最高版本。"
+  },
+  {
+    "id": "S4",
+    "title": "nexe — npm registry 元数据",
+    "url": "https://registry.npmjs.org/nexe",
+    "accessed": "2026-10-20",
+    "claim": "nexe 的 dist-tags 中 latest 为 5.0.0-beta.4（2025-03-08 发布），no-snapshot 标签为 4.0.0-rc.7，beta/next 同为 5.0.0-beta.4；版本长期停留在预发布。"
+  },
+  {
+    "id": "S5",
+    "title": "nexe/nexe — 提交记录",
+    "url": "https://github.com/nexe/nexe/commits/master/",
+    "accessed": "2026-10-20",
+    "claim": "仓库在 2026-03-05 有依赖维护提交；2025-03-08 合入 fix(node22) 处理新的参数顺序；-r 用于嵌入资源 glob，-t 指定 platform-arch-version。"
+  },
+  {
+    "id": "S6",
+    "title": "Node.js v24.20.0 发布目录",
+    "url": "https://nodejs.org/dist/v24.20.0/",
+    "accessed": "2026-10-20",
+    "claim": "Node.js v24.20.0 是已发布的官方版本，本机 node.exe 即该版本（Windows x64，实测 93,381,448 字节 ≈ 89 MiB）。"
+  }
+]

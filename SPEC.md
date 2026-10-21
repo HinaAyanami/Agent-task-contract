@@ -1,0 +1,306 @@
+# Agent Task Contract — SPEC v2.3
+
+> Authoritative text of the collaboration protocol. Body language is Chinese, as originally
+> written; an English translation is deliberately not provided to avoid altering rule semantics.
+
+## 0 角色、范围与编辑说明
+
+### 0.1 角色
+
+本文用两个专名指代协作中的两个角色：
+
+| 文中名称 | 角色 | 本项目中的实现 |
+| --- | --- | --- |
+| **Hermes** | 协调方（Coordinator）：派发、定预算、看门狗、独立验收、合并版本 | 桌面端 Agent，经 MCP 调用执行方 |
+| **dsh** | 执行方（Executor）：按任务书产出、自检、留证据、止损 | DeepSeek Harness，沙箱内运行 |
+
+两个名字在本项目中是具体产品，但在协议里应读作**角色**。换用其他 Agent 时，
+把 Hermes 读作协调方、dsh 读作执行方即可。
+
+### 0.2 协议与实现的分界
+
+本文分两类内容：
+
+- **规则**：任何一对协调方/执行方都应遵守，与工具无关。例如任务书必含项、自检次数上限、
+  验收以磁盘为准。
+- **实现说明**（标 `Implementation note (Hermes/dsh)`）：只对这套搭配成立，例如
+  PowerShell 脚本、`sessionId` 语义、`task_cancel` 工具名。规则本身不依赖它们。
+
+### 0.3 许可证
+
+**未定。** 本仓库故意不含 `LICENSE` 文件。在许可证确定前，不授予任何明示或默示的使用许可；
+需要引用或复用请先开 issue 讨论。
+
+### 0.4 发布时的编辑改动
+
+本文件以 [`history/v2.3.md`](history/v2.3.md) 为权威原文。为公开发布，做了且仅做了以下编辑：
+
+1. 标题由「协作契约（Hermes ⇄ dsh）v2.3」改为「Agent Task Contract — SPEC v2.3」。
+2. 新增本节（§0）。§0 不改变任何条款，只补充角色与范围的读法。
+3. 在 §3、§5、§6 各插入一条 `Implementation note`；三条都只是对原文已有事实的重述，
+   不新增、不删除、不放宽任何规则。
+4. 路径表述 `_history/` 改为仓库内的 `history/`。
+5. 原文开头的版本说明移入本节末尾（见下）。
+
+**除此之外，第 1–11 节的条款文字与 `history/v2.3.md` 逐字一致。**
+若发现不一致，以 `history/v2.3.md` 为准，并请开 issue。
+
+原文开头的版本说明（作为原文保留；它写于 v2.2 收尾，v2.3 合并时未更新这句话）：
+
+> 合并 v1.1–v2.1 全部已接受条款。v2.2 落地止损闭环，并修正三处口径。
+> 历史版本归档在 `_history/`。改动处标【v2.2】。
+
+---
+
+## 1 任务入口
+
+任务书必含**七**项：
+
+1. 产物绝对路径
+2. 验收命令与期望退出码
+3. 硬预算（**墙钟**分钟）
+4. 禁止项
+5. 允许工具面
+6. 交付物清单（逐项）
+7. 派发时间戳（ISO 8601，Hermes 写入；双方按同一时间戳计时）
+
+缺项时 dsh 只做可静态核验的部分，在 leftovers 写明缺哪项，不自造标准。
+
+【v2.2】若任务书含 `TASK.md` 且声明 `report.json` 字段数，该数必须与 §6 示例一致；
+dsh 用 `check-contract.js` 自检（任务目录有 `TASK.md` 时自动读取，`--task` 指定、`--no-task` 关闭），
+不一致时退出码 1，错误形如 `error TASK.md:L18: 声明字段数 13，与 §6 示例实际 12 个字段不一致`。
+
+**lite 模式**：预算 ≤15 分钟、单文件、无外部依赖时，只需 1、2、6 三项。
+其余默认：禁止项=「不建二进制/不跑基准」，允许工具面=pwsh + Node 绝对路径，
+long-run 配额=0，预算=15 分钟。任务书首行写 `mode: lite` 即生效。
+
+【v2.3】**预算三档**（Hermes 派发时显式指定；不写则按 standard，不允许"不写预算"）
+
+| 档位 | 预算 | 适用 |
+| --- | --- | --- |
+| lite | 15min | 单文件、无自检脚本、预计 <10min |
+| standard | 30min | 单/多文件、含自检脚本、单轮可完成 |
+| deep | 60min | 需检索、多轮自检、视觉验证 |
+
+看门狗参数随档位，见 §3。
+
+【v2.3】**复杂任务必须拆阶段**：deep 档单阶段 ≤30min，每阶段有独立交付物与验收点，
+不允许一个任务连续跑 60min 而无中间产物。阶段之间由 Hermes 验收后再派下一段。
+
+【v2.3】**预算到点不是失败**：到 3/4 停手交"可用版本 + 未完成清单"，Hermes 按 §4 判续接或重派；
+"没做完"与"做砸了"分开记，前者不扣质量分。
+
+## 2 停止条件
+
+"够好"写成可判定式：退出码 0 / 断言 ≥N / chars∈[a,b] / URL 200 数 = 来源数。
+
+- 自检按**类**计数：`selfcheck_runs = {"selftest": n, "url": n, "visual": n}`；
+  只有**同一类**到 3 次才判 `failed_selfcheck_limit`。
+- 同一类第 1 次失败，允许修测试或修实现后复跑 1 次；第 2 次仍失败即停，交失败日志与已尝试的修法。
+- `tests_modified: true` 时必须附"断言改前/改后 diff + 理由"；未附则这次自检不计通过。
+  Hermes 有权审阅后**拒绝该次自检**，理由写入验收回执；dsh 可申诉一次。
+- 违规后果：该任务判**未通过**，不论产物质量；`report.json.status = "failed_selfcheck_limit"`，
+  产物保留，由 Hermes 决定重派或人工复核。
+- 视觉项最多 1 轮截图（可含 2 个视口），不重跑。
+
+## 3 预算与超时
+
+**分级**
+
+- 普通命令 ≤90s，超时换实现，不重试第三次
+- **long-run**（构建、headless 截图、基准循环）：任务书单独授权，单条 ≤8 分钟，必须带 `timeoutMs`
+- 未写配额时，本机默认 **2 条 ≤8 分钟**（用户 2026-10-20 授权"允许跑到底"）；超出才需 override
+
+**超时闸门**
+
+- 【v2.1】**实测结论：`timeoutMs` 到点不 kill 进程**，而是把等待转入后台作业，命令继续跑完。
+  探针：`timeoutMs=25000`，`node -e` 实跑 60.134s，`killed=false`，exit 0。
+  由此：`long_run_used.seconds` 超过 timeoutMs 属正常，不判违规；"到时即 kill" 不成立，
+  真正的止损只能由 Hermes 侧 `task_cancel` 完成。
+- 到时写 leftovers（记录实际耗时与是否转后台），**不算违规**
+- 进度日志只作诊断，**不作为 kill 依据**（静默构建不该被误杀）
+
+【v2.2】**两层止损，职责分开**
+
+- **命令级（dsh 职责）**：可能超过 60s 的每条命令、以及全部 long-run，必须用
+  `_tools/run-with-timeout.ps1` 包住；到时 kill 子进程树（含孙进程），不再依赖 `timeoutMs` 的"到点"假象。
+- **任务级（Hermes 职责）**：`task_cancel` 只兜底"dsh 整体不响应"（见下）；单条命令卡死应在命令级结束，
+  不得拖到看门狗。
+
+**调用约定**（本机实测版，务必按此写法）
+
+```powershell
+# 推荐：命令先落成 cmd-*.ps1，再引用（路径用相对路径，别在 -Command 里写中文绝对路径）
+powershell -NoProfile -ExecutionPolicy Bypass -File _tools\run-with-timeout.ps1 `
+  -Command '& .\_tools\cmd-longrun-1.ps1' -TimeoutSec 300 -OutFile _evidence\longrun-1.json
+```
+
+【v2.2】**引号方案修正（Hermes 复测）**：dsh 提案里的"内层双引号写成两个双引号"在本机
+bash → PowerShell 链路下**不成立**——`'node -e ""setTimeout(...)""'` 落盘后 PS 5.1 报
+`ExpectedExpression`，wrapper 仍返回 `killed:false`。**唯一可靠写法是命令先写进 `_tools\cmd-*.ps1`
+再以 `-Command '& .\_tools\cmd-xxx.ps1'` 调用**；该写法复测通过：5.152s、exit 124、`killed:true`。
+
+脚本契约：
+
+- 参数：`-Command`（必填）、`-TimeoutSec`（必填，可为小数）、`-OutFile`（结果 JSON，可选）
+- 超时：kill 子进程树，stdout 末行 `{"killed":true,"elapsed_s":N}`，wrapper 退出码 **124**
+- 正常：stdout 末行 `{"killed":false,"elapsed_s":N,"exit_code":N}`，wrapper 退出码 = 子命令退出码
+- `-OutFile` 写同一行 JSON，**UTF-8 无 BOM**；子命令 stdout/stderr 原样转发
+- 脚本由 dsh 每任务在 `_tools/` 重建；交付前删除，不依赖全局安装
+- 实现注记：本机无 pwsh 7（只有 5.1），沙箱内 `taskkill /T` 与 WMI/CIM 均 Access denied，
+  参考实现用 Toolhelp32 快照枚举子孙 PID + `Stop-Process`；调用方只守 JSON/退出码契约，不必关心实现
+> **Implementation note (Hermes/dsh).** 参考实现见 [`tools/run-with-timeout.ps1`](tools/run-with-timeout.ps1)。
+> 本机只有 Windows PowerShell 5.1；沙箱内 `taskkill /T` 与 WMI/CIM 均返回 Access denied，
+> 因此实现改用 Toolhelp32 快照枚举子孙进程，再逐个 `Stop-Process`。规则本身只要求
+> "到点终止整棵进程树并留下结果 JSON"，不要求特定实现。
+
+【v2.3】**看门狗（随预算档位，待验证）**
+
+| 档位 | 检查间隔 | 静默阈值 |
+| --- | --- | --- |
+| lite | 5 min | 5 min |
+| standard | 5 min | 8 min |
+| deep | 10 min | 12 min |
+
+- 判据是**双指标**：目标目录 mtime 与 `session_log` 最后事件时间都超过阈值才 `task_cancel`
+  （只看 mtime 会误杀：首轮试跑文件 16:54 停止变化，任务实际干到 17:03，中间在写自测）
+- 定位：只兜底"dsh 连 pwsh 都起不来 / 整体不响应"；单条命令卡死由命令级止损处理
+
+【v2.2 待验证】本参数尚未在真实卡死中校准。校准方法：首次真实卡死时记录
+「最后事件时间 → cancel 实际间隔」，把实测值回填本节并把"待验证"改为实测结论。
+若实际间隔 > 阈值 × 2，说明检查粒度或事件源失真，下版调整（不是加严阈值掩盖）。
+
+到预算 3/4 停止打磨，交"可用版本 + 未完成清单"。
+
+## 4 失败与产物
+
+被取消或超时后，产物留在原路径；Hermes 查最后一次文件变化，决定"续接 / 重派"。
+**续接判据**：`取消时刻 − 产物最后一次 mtime < 5 分钟` → 续接；否则重派。
+判据由 Hermes 在取消时立即计算并记录，不要求取消后继续盯盘。
+
+证据放任务目录内 `_evidence/`，临时脚本放 `_tools/` 且交付前删除。
+两者都是任务目录的子目录，不构成对 §5 目录隔离的例外。
+
+## 5 隔离
+
+- **目录**：一个任务一个独立子目录；dsh 不得写该目录以外的任何文件（读取不受限）。
+- **会话**【v2.1】**已实测：没有强制新建会话的 API。**
+  传新 UUID 作为 `sessionId` → 报 `session not found for resume`，任务立即失败（`status: error`）。
+  唯一可行路径：**不传 `sessionId`**（复用最近 live 会话）。
+  任务书首行固定写 `context: isolated`，**值只写 `isolated`**，不得追加括号说明或其他 token；
+  隔离的解释写正文，不写进该字段。
+  这是**指令层隔离，不是技术隔离**：dsh 必须遵守"不引用历史任务内容"，Hermes 按 §7 抽查。
+  另：无 `sessionId` 的任务 `task_result` 返回 `sessionId: null`，§4 的续接判断只能靠文件 mtime。
+  【v2.2】传**已有** `sessionId` 也未必可行：若该会话正被 Web UI 写句柄占用，MCP 派发报
+  `already owned by an active write handle`。续接前先确认目标会话没有人工在用地。
+- **并发**：同一时间只跑一个任务；队列串行是当前实现的限制，不作为并行手段。
+> **Implementation note (Hermes/dsh).** `sessionId`、`task_cancel`、`task_result` 是
+> MCP bridge 暴露的参数名与工具名。换宿主时按"会话标识 / 取消任务 / 取回结果"三个语义替换即可；
+> 规则要求的"一个任务一个会话、不引用历史"不随工具变化。
+
+## 6 证据格式
+
+```
+_evidence/test.log            原始 stdout + stderr
+_evidence/report.json         见下
+_evidence/shot-<宽>x<高>.png   视觉证据
+```
+
+`report.json` 必含：
+
+```json
+{
+  "deliverables": [],
+  "test_cmd": "",
+  "exit_code": 0,
+  "passed": 0,
+  "failed": 0,
+  "budget_used_min": 0,
+  "selfcheck_runs": {"selftest": 0, "url": 0, "visual": 0},
+  "long_run_used": [{"cmd": "", "seconds": 0}],
+  "tests_modified": false,
+  "deliverable_check": [{"item": "", "present": true}],
+  "status": "",
+  "notes": ""
+}
+```
+
+本节示例共 **12** 个字段，此数为唯一口径；任务书 / `TASK.md` / `report.json` 均按 12 核对
+（此前"13"为笔误）。
+
+缺任一字段视为未完成交付。`deliverable_check` 由 dsh 自报，**Hermes 独立复核**；
+不一致时以 Hermes 为准，差异项写进验收回执。
+
+【v2.1】**编码**：所有 `_evidence/*.log` 必须是 **UTF-8（无 BOM）**。
+PowerShell 重定向默认 UTF-16LE，实测产出 `FF FE` 开头、验收方脚本读成乱码——按字节判定不合格。
+
+【v2.2】**验收只认磁盘**：无 `sessionId` 的任务，`task_result` 实测 `assistantText` 为空、
+`stats` 为空，只返回 `status`。因此验收以 `_evidence/` 与产物文件为准，
+**不得把 `assistantText` 当作交付证据**；需要对话记录时用 `session_log`（且该会话未被 UI 占用）。
+> **Implementation note (Hermes/dsh).** 12 个字段由 [`tools/check-contract.js`](tools/check-contract.js)
+> 校验。该校验器同时检查章节编号、`§` 引用与 JSON 语法，可对任意版本的本文运行。
+
+## 7 Hermes 侧义务
+
+- 派发时给全 §1 七项（lite 三项），不含糊、不让她猜。
+- 不中途改需求；要改就取消重派，不在运行中插话。
+- 任务结束后立即验收，给"通过 / 不通过 + 具体缺项"。
+- 不要求环境不具备的能力：本机沙箱没有 bash / python，只有 pwsh 和指定 Node 绝对路径。
+- 验收以自己的复测为准；复测数据回传，不采信自述。
+- 核对 §6 全部字段，把核对结果写进回执。
+- 执行 §3 看门狗。
+- 【v2.2】**串味抽查方法**：只提问「只有历史任务才知道的事实」（上一任务的具体计数、未落盘的临时变量名、
+  只存在于旧会话的中间决定）。合格回答必须是「本次任务无此信息」；答出历史细节即判串味，
+  按 §2 违规处理，问答原文写进验收回执。
+
+## 8 优先级
+
+冲突时：**任务书 > BRIEF > 本契约**。
+
+例外：§2、§3 是硬底线，任务书只能收紧、不能放宽。放宽需写 `override: §3 理由=…`，
+由 **Hermes 自行批准并执行**，同时在 leftovers 异步记一条（原文、理由、放宽了哪条）；
+人在回复里可见，事后审计，不必事前拦人。
+
+硬底线的含义是"任务书不能放宽"，不是"Hermes 不能调整默认值"；调默认值走 §9。
+
+## 9 变更流程
+
+1. 任一方提补丁（只写 diff，不重写全文）。
+2. 另一方 24 小时内回「接受 / 拒绝 + 理由」；超时视为未决，旧版继续生效。
+3. 接受后由 Hermes 更新 `COLLAB.md` 指针，旧版移入 `_history/`。
+4. 每版只改一个主题；攒到 3 个主题或 2 周，做一次合并版（如本版）。
+
+## 10 争议解决
+
+验收结论不一致时：以 Hermes 复测为准；dsh 可在 leftovers 写一次申诉（≤200 字），
+Hermes 必须逐条回应。申诉不改变本次结论，只影响下次任务书。
+
+## 11 stop-and-report
+
+允许停手报告：停手、保留产物、在 leftovers 写明卡点与已尝试路径。
+该动作**不消耗 long-run 配额、不算自检违规、不判未通过**。
+
+【v2.0】**触发条件**（防止遇难就停）：
+
+- 已尝试 ≥2 条不同路径且都失败，或
+- 预算已用 ≥3/4，或
+- 环境缺能力（无 bash / 权限拒绝 / 工具报错）
+
+不满足上述条件时停手，视为未完成，按 §2 计。
+
+---
+
+## 修订记录
+
+- v1.0 2026-10-20　dsh 起草
+- v1.1 2026-10-20　Hermes：交付物清单、自检可修一次、long-run 分级、隔离、证据格式、双向义务
+- v1.2 2026-10-20　dsh：可核验字段、long-run 默认配额、改测试审计、单源指针、续接判据、硬底线
+- v1.3 2026-10-20　Hermes：指针单一化、lite 模式、违规后果、配额对齐授权、续接差值、会话降级、复核、变更流程
+- v1.4 2026-10-20　dsh：指针文件名、七项同步、自检按类、超时闸门、override 异步、stop-and-report
+- v2.0 2026-10-20　Hermes 合并：以上全部 + 看门狗、stop-and-report 触发条件；指针切换
+- v2.1 2026-10-20　实测回填：timeoutMs 不 kill 而转后台（探针 60.134s）；看门狗改双指标；
+  会话隔离改为"无 API，仅指令层"；证据日志编码强制 UTF-8
+- v2.2 2026-10-20　dsh 提案 + Hermes 合并：命令级止损脚本与调用约定（引号方案经复测修正为 cmd-*.ps1）；
+  看门狗随预算缩放并标待验证；字段定死 12 + TASK.md 对账；context 只写 isolated + 串味抽查；
+  补"已有 session 被 UI 占用"的失败模式
+- **v2.3 2026-10-20　Hermes：预算三档（lite/standard/deep）+ 复杂任务强制拆阶段 + "没做完≠做砸了"**

@@ -1,0 +1,54 @@
+{
+  "deliverables": [
+    "check-contract.js",
+    "_evidence/test.log",
+    "_evidence/report.json",
+    "_evidence/timeout-probe.log"
+  ],
+  "test_cmd": "node check-contract.js <workspace>/COLLAB-v2.0.md",
+  "exit_code": 0,
+  "passed": 1,
+  "failed": 0,
+  "budget_used_min": 4,
+  "selfcheck_runs": {
+    "selftest": 1,
+    "url": 0,
+    "visual": 0
+  },
+  "long_run_used": [],
+  "tests_modified": false,
+  "deliverable_check": [
+    {
+      "item": "check-contract.js",
+      "present": true
+    },
+    {
+      "item": "_evidence/test.log",
+      "present": true
+    },
+    {
+      "item": "_evidence/report.json",
+      "present": true
+    },
+    {
+      "item": "_evidence/timeout-probe.log",
+      "present": true
+    }
+  ],
+  "status": "passed",
+  "notes": "验收：node check-contract.js <workspace>/COLLAB-v2.0.md → exit 0，stdout 末行「checked 11 sections, 9 refs, 0 errors」；11 个顶层编号节 1..11 连续，9 处 § 引用全部解析，1 个 json 块解析通过，§6 示例的 12 个字段齐全。A 超时探针：timeoutMs=25000，命令实跑 60.134s 未被中断（DSH 在 25s 把等待转入后台作业，未 kill 进程），killed=false，exit_code=0，见 _evidence/timeout-probe.log。B 自检：selfcheck_runs={\"selftest\":1,\"url\":0,\"visual\":0}；另用缺陷样例 _evidence/selftest.log 验证 8 条错误路径（缺号 2、缺号 4/5、重复章节号、2 条不可解析引用、JSON 语法错误、缺字段 notes），退出码 1。§6 字段说明：契约示例实际列出 12 个字段（任务书称 13 个，以文档为准，未硬编码字段名）；report.json 在其上附加 sections_checked/refs_checked/contract_errors/timeout_probe/evidence_files 5 个证据字段。未修改 COLLAB-v2.0.md，未在任务目录外写文件。",
+  "sections_checked": 11,
+  "refs_checked": 9,
+  "contract_errors": 0,
+  "timeout_probe": {
+    "timeoutMs": 25000,
+    "elapsed_s": 60.134,
+    "killed": false,
+    "exit_code": 0
+  },
+  "evidence_files": [
+    "_evidence/test.log",
+    "_evidence/selftest.log",
+    "_evidence/timeout-probe.log"
+  ]
+}

@@ -1,0 +1,14 @@
+=== A: 30s command (parent+grandchild) with TimeoutSec=5 ===
+cmd: node probe-a.js ; timeout_s: 5
+a-parent-started pid=6872 child=13656
+{"killed":true,"elapsed_s":5.16}
+wrapper_exit=124 wall_s=5.761
+outfile: {"killed":true,"elapsed_s":5.16}
+tree-alive.marker after +5s: False
+
+=== B: 3s command with TimeoutSec=10 ===
+cmd: node probe-b.js ; timeout_s: 10
+b-done
+{"killed":false,"elapsed_s":3.53,"exit_code":0}
+wrapper_exit=0 wall_s=4.122
+outfile: {"killed":false,"elapsed_s":3.53,"exit_code":0}

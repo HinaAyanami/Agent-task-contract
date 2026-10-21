@@ -1,0 +1,91 @@
+{
+  "deliverables": [
+    "run-with-timeout.ps1",
+    "v2.2-diff.md",
+    "_evidence/test.log",
+    "_evidence/report.json"
+  ],
+  "test_cmd": "powershell -NoProfile -ExecutionPolicy Bypass -File run-with-timeout.ps1 -Command 'node ...\\probe-a.js' -TimeoutSec 5 -OutFile _evidence\\guard-a.json ; powershell -NoProfile -ExecutionPolicy Bypass -File run-with-timeout.ps1 -Command 'node ...\\probe-b.js' -TimeoutSec 10 -OutFile _evidence\\guard-b.json",
+  "exit_code": 0,
+  "passed": 2,
+  "failed": 0,
+  "budget_used_min": 7,
+  "selfcheck_runs": {
+    "selftest": 2,
+    "url": 0,
+    "visual": 0
+  },
+  "long_run_used": [],
+  "tests_modified": false,
+  "deliverable_check": [
+    {
+      "item": "run-with-timeout.ps1",
+      "present": true
+    },
+    {
+      "item": "v2.2-diff.md",
+      "present": true
+    },
+    {
+      "item": "_evidence/test.log",
+      "present": true
+    },
+    {
+      "item": "_evidence/report.json",
+      "present": true
+    }
+  ],
+  "status": "passed",
+  "notes": "A（30s 命令 + TimeoutSec=5）：killed=true，elapsed_s=5.16，wrapper 退出码 124，整体墙钟 5.761s；命令还 spawn 了孙进程，超时后等 5s 检查 marker 未出现（孙进程同被杀），见 _evidence/guard-a.json 与 test.log。B（3s 命令 + TimeoutSec=10）：killed=false，elapsed_s=3.53，exit_code=0，wrapper 退出码 0，墙钟 4.122s，见 _evidence/guard-b.json。两次 test.log/JSON 均为 UTF-8 无 BOM（首字节非 EF BB BF）。环境实测：本机无 pwsh 7，只有 Windows PowerShell 5.1.26100.9711；沙箱内 taskkill /T 与 WMI/CIM 均 Access denied，Stop-Process 可用，故脚本用 Toolhelp32 快照枚举子孙 PID 再逐个 Stop-Process（先快照后杀父，避免孤儿无法回溯）；临时命令脚本用 UTF-8 with BOM 落盘，否则 5.1 按 ANSI 读会弄坏中文路径。引号实测：PowerShell 原生传参会把单层双引号剥掉，-Command 内层双引号须写成两个双引号，或把命令写进 .ps1 再 -Command '& ...'，该约定已写进 v2.2-diff。③ 已让 check-contract.js 增加 TASK.md 字段数对账：任务目录有 TASK.md 时自动读取（--task 指定、--no-task 关闭），声明数与 §6 示例不一致报 error TASK.md:Lx 且退出码 1；实测声明 13 → 1 error/exit 1，声明 12 → 0 error/exit 0，v2.1 本体 --no-task → 0 error（11 sections, 13 refs），见 _evidence/check-contract-task.log。v2.2-diff.md 含四条改动：命令级止损+调用约定、看门狗缩放并标待验证、字段定死 12 并与 TASK.md 对账、context 只写 isolated + 串味抽查方法。未修改 COLLAB.md 与 COLLAB-v2.1.md（mtime 保持 16:56:32 / 16:56:36）。",
+  "self_tests": [
+    {
+      "name": "A",
+      "timeout_s": 5,
+      "command": "node ...\\probe-a.js (30s parent + grandchild)",
+      "killed": true,
+      "elapsed_s": 5.16,
+      "wrapper_exit": 124,
+      "wall_s": 5.761,
+      "tree_alive_marker": false,
+      "outfile": "_evidence/guard-a.json"
+    },
+    {
+      "name": "B",
+      "timeout_s": 10,
+      "command": "node ...\\probe-b.js (3s)",
+      "killed": false,
+      "elapsed_s": 3.53,
+      "exit_code": 0,
+      "wrapper_exit": 0,
+      "wall_s": 4.122,
+      "outfile": "_evidence/guard-b.json"
+    }
+  ],
+  "timeout_guard": {
+    "script": "run-with-timeout.ps1",
+    "timeout_exit_code": 124,
+    "result_json": {
+      "timeout": "{\"killed\":true,\"elapsed_s\":N}",
+      "normal": "{\"killed\":false,\"elapsed_s\":N,\"exit_code\":N}"
+    },
+    "encoding": "UTF-8 no BOM"
+  },
+  "checker_update": {
+    "file": "<workspace>\\_runs\\contract-check\\check-contract.js",
+    "rule": "任务目录存在 TASK.md 时，解析其声明的 report.json 字段数，与 §6 示例顶层字段数比对；不一致报 error TASK.md:Lx 并退出 1",
+    "test_log": "_evidence/check-contract-task.log",
+    "results": {
+      "task_12": "0 errors, exit 0",
+      "task_13": "1 error (TASK.md:L1), exit 1",
+      "contract_v2_1_no_task": "11 sections, 13 refs, 0 errors"
+    }
+  },
+  "env": {
+    "powershell": "5.1.26100.9711",
+    "pwsh7": false,
+    "taskkill": "Access denied",
+    "wmi_cim": "Access denied",
+    "stop_process": "works",
+    "tree_kill": "Toolhelp32 snapshot + Stop-Process"
+  }
+}

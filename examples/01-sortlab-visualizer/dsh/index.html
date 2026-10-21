@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SortLab · 排序算法可视化</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --panel:#151f36;
+    --panel-2:#0f1626;
+    --line:#243352;
+    --text:#e6edf9;
+    --muted:#93a3bd;
+    --accent:#5b9cff;
+    --ok:#34d399;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:radial-gradient(1100px 520px at 18% -12%, #17233d 0%, var(--bg) 62%) fixed;
+    color:var(--text);
+    font:14px/1.45 "Segoe UI", system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    display:flex;flex-direction:column;gap:9px;
+    height:100vh;max-width:1640px;margin:0 auto;
+    padding:10px 14px 12px;
+  }
+  header{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0}
+  h1{margin:0;font-size:clamp(15px,1.6vw,20px);letter-spacing:.02em;font-weight:700}
+  h1 span{color:var(--accent)}
+  .sub{margin:0;color:var(--muted);font-size:12px}
+  .controls{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;
+    padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  }
+  .field{display:flex;align-items:center;gap:6px;min-width:0}
+  .field>label{color:var(--muted);font-size:12px;white-space:nowrap}
+  .field b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
+  select{
+    font:inherit;color:var(--text);background:var(--panel-2);
+    border:1px solid var(--line);border-radius:8px;padding:4px 8px;
+  }
+  input[type=range]{width:104px;accent-color:var(--accent)}
+  button{
+    font:inherit;font-weight:600;color:#08111f;cursor:pointer;
+    background:linear-gradient(180deg,#9ed4ff,#5b9cff);
+    border:1px solid rgba(255,255,255,.22);border-radius:8px;padding:6px 13px;
+    white-space:nowrap;
+  }
+  button.ghost{background:#1b2740;color:var(--text);border:1px solid var(--line)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:focus-visible{outline:2px solid #b9d6ff;outline-offset:2px}
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 9px;min-width:0}
+  .stat .k{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
+  .stat .v{font-size:14.5px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stage{
+    flex:1;min-height:0;display:flex;flex-direction:column;gap:7px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 10px 8px;
+  }
+  .chart{flex:1;min-height:110px;min-width:0;position:relative}
+  .chart canvas{display:block;border-radius:8px;background:linear-gradient(180deg,#0d1626,#0a1220)}
+  .legend,.summary{margin:0;font-size:11.5px;color:var(--muted);line-height:1.4}
+  .summary{color:#cfe0ff;min-height:1.4em}
+  .summary b{color:#fff}
+  @media (max-width:1000px){
+    .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .sub{display:none}
+    .chart{min-height:90px}
+  }
+  @media (max-width:620px){
+    .app{padding:8px}
+    .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Sort<span>Lab</span> · 排序算法可视化</h1>
+    <p class="sub">冒泡 / 插入 / 快速 / 归并 · 逐步动画 · 实时统计（离线单文件）</p>
+  </header>
+
+  <section class="controls" aria-label="控制面板">
+    <div class="field">
+      <label for="algo">算法</label>
+      <select id="algo"></select>
+    </div>
+    <div class="field">
+      <label for="size">规模 <b id="sizeVal">80</b></label>
+      <input id="size" type="range" min="20" max="200" step="1" value="80">
+    </div>
+    <div class="field">
+      <label for="speed">速度 <b id="speedVal">6</b></label>
+      <input id="speed" type="range" min="1" max="10" step="1" value="6">
+    </div>
+    <button id="btnPlay" type="button">开始</button>
+    <button id="btnStep" type="button" class="ghost">单步</button>
+    <button id="btnReset" type="button" class="ghost">重置</button>
+  </section>
+
+  <section class="stats" aria-label="运行统计">
+    <div class="stat"><div class="k">比较次数</div><div class="v" id="statCmp">0</div></div>
+    <div class="stat"><div class="k">写入次数</div><div class="v" id="statWrite">0</div></div>
+    <div class="stat"><div class="k">步数</div><div class="v" id="statSteps">0</div></div>
+    <div class="stat"><div class="k">当前算法</div><div class="v" id="statAlgo">—</div></div>
+    <div class="stat"><div class="k">状态</div><div class="v" id="statStatus">就绪</div></div>
+    <div class="stat"><div class="k">用时</div><div class="v" id="statTime">0.00 s</div></div>
+  </section>
+
+  <section class="stage">
+    <div class="chart" id="chart"></div>
+    <p class="legend">柱高对应数值（4–100）· 颜色由冷到暖表示数值由小到大 · 白色柱＝正在比较或写入的元素 · 全部转绿＝排序完成（顶部状态文字同步显示）</p>
+    <p class="summary" id="summary">就绪：选择算法与规模后点击「开始」，或点「单步」逐条观察比较与写入。</p>
+  </section>
+</div>
+
+<script id="sort-core">
+/* SortCore —— 全项目唯一一份排序算法实现。
+   浏览器中挂到 window.SortCore；selftest.js 用正则抽取本段后以 new Function 执行。
+   每个算法返回 { sorted, comparisons, writes, steps }：
+     steps 中 { t: 'c', i, j } 记录一次元素比较，{ t: 'w', i, v } 记录一次元素写入。
+   复杂度计数只统计元素比较与对主数组的写入，不计辅助缓冲区的写入。 */
+(function (root) {
+  'use strict';
+
+  function pack(arr, comparisons, writes, steps) {
+    return { sorted: arr, comparisons: comparisons, writes: writes, steps: steps };
+  }
+
+  function bubbleSort(input) {
+    var a = input.slice();
+    var n = a.length;
+    var steps = [];
+    var comparisons = 0;
+    var writes = 0;
+    function cmp(i, j) {
+      comparisons++;
+      steps.push({ t: 'c', i: i, j: j });
+      return a[i] - a[j];
+    }
+    function put(i, v) {
+      a[i] = v;
+      writes++;
+      steps.push({ t: 'w', i: i, v: v });
+    }
+    for (var pass = 0; pass < n - 1; pass++) {
+      var swapped = false;
+      for (var j = 0; j < n - 1 - pass; j++) {
+        if (cmp(j, j + 1) > 0) {
+          var left = a[j];
+          put(j, a[j + 1]);
+          put(j + 1, left);
+          swapped = true;
+        }
+      }
+      if (!swapped) { break; }
+    }
+    return pack(a, comparisons, writes, steps);
+  }
+
+  function insertionSort(input) {
+    var a = input.slice();
+    var n = a.length;
+    var steps = [];
+    var comparisons = 0;
+    var writes = 0;
+    function put(i, v) {
+      a[i] = v;
+      writes++;
+      steps.push({ t: 'w', i: i, v: v });
+    }
+    for (var i = 1; i < n; i++) {
+      var key = a[i];
+      var j = i - 1;
+      while (j >= 0) {
+        comparisons++;
+        steps.push({ t: 'c', i: j, j: i });
+        if (a[j] <= key) { break; }
+        put(j + 1, a[j]);
+        j--;
+      }
+      if (j + 1 !== i) { put(j + 1, key); }
+    }
+    return pack(a, comparisons, writes, steps);
+  }
+
+  function quickSort(input) {
+    var a = input.slice();
+    var n = a.length;
+    var steps = [];
+    var comparisons = 0;
+    var writes = 0;
+    function cmp(i, j) {
+      comparisons++;
+      steps.push({ t: 'c', i: i, j: j });
+      return a[i] - a[j];
+    }
+    function put(i, v) {
+      a[i] = v;
+      writes++;
+      steps.push({ t: 'w', i: i, v: v });
+    }
+    function swap(i, j) {
+      if (i === j) { return; }
+      var t = a[i];
+      put(i, a[j]);
+      put(j, t);
+    }
+    var stack = [[0, n - 1]];
+    while (stack.length) {
+      var seg = stack.pop();
+      var lo = seg[0];
+      var hi = seg[1];
+      if (lo >= hi) { continue; }
+      var mid = (lo + hi) >> 1;
+      if (cmp(mid, lo) < 0) { swap(mid, lo); }
+      if (cmp(hi, lo) < 0) { swap(hi, lo); }
+      if (cmp(hi, mid) < 0) { swap(hi, mid); }
+      swap(mid, hi);
+      var pivot = a[hi];
+      var store = lo;
+      for (var k = lo; k < hi; k++) {
+        if (cmp(k, hi) <= 0) { swap(store, k); store++; }
+      }
+      swap(store, hi);
+      stack.push([lo, store - 1]);
+      stack.push([store + 1, hi]);
+    }
+    return pack(a, comparisons, writes, steps);
+  }
+
+  function mergeSort(input) {
+    var a = input.slice();
+    var steps = [];
+    var comparisons = 0;
+    var writes = 0;
+    function cmp(i, j) {
+      comparisons++;
+      steps.push({ t: 'c', i: i, j: j });
+      return a[i] - a[j];
+    }
+    function put(i, v) {
+      a[i] = v;
+      writes++;
+      steps.push({ t: 'w', i: i, v: v });
+    }
+    function sortRange(lo, hi) {
+      if (lo >= hi) { return; }
+      var mid = (lo + hi) >> 1;
+      sortRange(lo, mid);
+      sortRange(mid + 1, hi);
+      var buf = [];
+      var i = lo;
+      var j = mid + 1;
+      while (i <= mid && j <= hi) {
+        if (cmp(i, j) <= 0) { buf.push(a[i]); i++; }
+        else { buf.push(a[j]); j++; }
+      }
+      while (i <= mid) { buf.push(a[i]); i++; }
+      while (j <= hi) { buf.push(a[j]); j++; }
+      for (var k = 0; k < buf.length; k++) { put(lo + k, buf[k]); }
+    }
+    sortRange(0, a.length - 1);
+    return pack(a, comparisons, writes, steps);
+  }
+
+  var api = {
+    bubbleSort: bubbleSort,
+    insertionSort: insertionSort,
+    quickSort: quickSort,
+    mergeSort: mergeSort,
+    algorithms: [
+      { id: 'bubble', name: '冒泡排序', run: bubbleSort },
+      { id: 'insertion', name: '插入排序', run: insertionSort },
+      { id: 'quick', name: '快速排序', run: quickSort },
+      { id: 'merge', name: '归并排序', run: mergeSort }
+    ]
+  };
+  if (root) { root.SortCore = api; }
+  return api;
+})(typeof window !== 'undefined' ? window : null);
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var Core = window.SortCore;
+  var ALGOS = Core.algorithms;
+  var MIN_VALUE = 4;
+  var MAX_VALUE = 100;
+
+  function el(id) { return document.getElementById(id); }
+
+  var ui = {
+    algo: el('algo'),
+    size: el('size'),
+    sizeVal: el('sizeVal'),
+    speed: el('speed'),
+    speedVal: el('speedVal'),
+    play: el('btnPlay'),
+    step: el('btnStep'),
+    reset: el('btnReset'),
+    cmp: el('statCmp'),
+    wr: el('statWrite'),
+    stp: el('statSteps'),
+    algoName: el('statAlgo'),
+    status: el('statStatus'),
+    time: el('statTime'),
+    summary: el('summary')
+  };
+
+  var box = el('chart');
+  var canvas = document.createElement('canvas');
+  canvas.setAttribute('aria-label', '排序数组柱状图');
+  box.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+
+  var boxW = 1;
+  var boxH = 1;
+  var dpr = 1;
+
+  var st = {
+    base: [],
+    work: [],
+    steps: [],
+    cursor: 0,
+    compares: 0,
+    writes: 0,
+    applied: 0,
+    playing: false,
+    finished: false,
+    sortedView: false,
+    highlight: [],
+    acc: 0,
+    t0: 0,
+    raf: 0
+  };
+
+  function randInt(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+
+  function buildBase(n) {
+    var arr = [];
+    for (var i = 0; i < n; i++) { arr.push(randInt(MIN_VALUE, MAX_VALUE)); }
+    return arr;
+  }
+
+  function currentAlgo() {
+    var id = ui.algo.value;
+    for (var i = 0; i < ALGOS.length; i++) {
+      if (ALGOS[i].id === id) { return ALGOS[i]; }
+    }
+    return ALGOS[0];
+  }
+
+  function elapsedNow() {
+    return st.acc + (st.t0 ? (performance.now() - st.t0) : 0);
+  }
+
+  function setStatus(text) { ui.status.textContent = text; }
+  function setSummary(html) { ui.summary.innerHTML = html; }
+
+  function resetRun(withNewArray) {
+    if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
+    if (withNewArray) { st.base = buildBase(Number(ui.size.value)); }
+    st.work = st.base.slice();
+    st.steps = currentAlgo().run(st.base).steps;
+    st.cursor = 0;
+    st.compares = 0;
+    st.writes = 0;
+    st.applied = 0;
+    st.playing = false;
+    st.finished = false;
+    st.sortedView = false;
+    st.highlight = [];
+    st.acc = 0;
+    st.t0 = 0;
+    ui.play.textContent = '开始';
+    ui.step.disabled = false;
+    setStatus('就绪');
+    setSummary('就绪：点击「开始」播放动画，或点「单步」逐条观察比较与写入。');
+    render();
+  }
+
+  function render() {
+    drawChart();
+    ui.cmp.textContent = String(st.compares);
+    ui.wr.textContent = String(st.writes);
+    ui.stp.textContent = String(st.applied);
+    ui.algoName.textContent = currentAlgo().name;
+    ui.time.textContent = (elapsedNow() / 1000).toFixed(2) + ' s';
+  }
+
+  function applyOne() {
+    if (st.cursor >= st.steps.length) { return false; }
+    var s = st.steps[st.cursor];
+    st.cursor++;
+    if (s.t === 'c') {
+      st.compares++;
+      st.highlight = [s.i, s.j];
+    } else {
+      st.work[s.i] = s.v;
+      st.writes++;
+      st.highlight = [s.i];
+    }
+    st.applied++;
+    return true;
+  }
+
+  function finish() {
+    if (st.t0) { st.acc += performance.now() - st.t0; st.t0 = 0; }
+    st.playing = false;
+    st.finished = true;
+    st.sortedView = true;
+    st.highlight = [];
+    if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
+    ui.play.textContent = '重新开始';
+    ui.step.disabled = true;
+    setStatus('已完成 · 数组有序');
+    setSummary('<b>' + currentAlgo().name + '</b>：比较 ' + st.compares + ' 次 · 写入 ' +
+      st.writes + ' 次 · 共 ' + st.applied + ' 步 · 用时 ' + (st.acc / 1000).toFixed(2) +
+      ' 秒 · 结果已按升序排列。');
+    render();
+  }
+
+  function stepsPerFrame() {
+    var v = Number(ui.speed.value);
+    return Math.max(1, Math.round(Math.pow(2, v - 1) / 2));
+  }
+
+  function loop() {
+    if (!st.playing) { return; }
+    var budget = stepsPerFrame();
+    var done = 0;
+    while (done < budget && st.cursor < st.steps.length) {
+      applyOne();
+      done++;
+    }
+    if (st.cursor >= st.steps.length) { finish(); return; }
+    render();
+    st.raf = requestAnimationFrame(loop);
+  }
+
+  function start() {
+    if (st.finished) { return; }
+    if (st.cursor >= st.steps.length) { finish(); return; }
+    st.playing = true;
+    st.sortedView = false;
+    st.t0 = performance.now();
+    ui.play.textContent = '暂停';
+    ui.step.disabled = true;
+    setStatus('运行中');
+    setSummary('运行中：白色描边标出当前比较（或写入）的元素。');
+    loop();
+  }
+
+  function pause() {
+    if (st.t0) { st.acc += performance.now() - st.t0; st.t0 = 0; }
+    st.playing = false;
+    if (st.raf) { cancelAnimationFrame(st.raf); st.raf = 0; }
+    ui.play.textContent = '继续';
+    ui.step.disabled = false;
+    setStatus('已暂停');
+    render();
+  }
+
+  function fitCanvas() {
+    var rect = box.getBoundingClientRect();
+    boxW = Math.max(80, Math.floor(rect.width));
+    boxH = Math.max(80, Math.floor(rect.height));
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(boxW * dpr);
+    canvas.height = Math.round(boxH * dpr);
+    canvas.style.width = boxW + 'px';
+    canvas.style.height = boxH + 'px';
+    drawChart();
+  }
+
+  function drawChart() {
+    if (!canvas.width || !canvas.height) { return; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, boxW, boxH);
+    var arr = st.work;
+    var n = arr.length;
+    if (!n) { return; }
+    var padTop = 12;
+    var padBottom = 14;
+    var usable = Math.max(20, boxH - padTop - padBottom);
+    var slot = boxW / n;
+    var gap = slot > 6 ? 2 : (slot > 3 ? 1 : 0);
+    var barW = Math.max(1, slot - gap);
+    ctx.fillStyle = 'rgba(148,163,184,0.22)';
+    ctx.fillRect(0, padTop + usable, boxW, 1);
+    var hl = st.highlight;
+    for (var i = 0; i < n; i++) {
+      var v = arr[i];
+      var h = Math.max(2, (v / MAX_VALUE) * usable);
+      var x = i * slot + gap / 2;
+      var y = padTop + usable - h;
+      var hot = hl.indexOf(i) !== -1;
+      if (hot) {
+        ctx.fillStyle = '#f8fafc';
+      } else if (st.sortedView) {
+        ctx.fillStyle = '#34d399';
+      } else {
+        var t = (v - MIN_VALUE) / (MAX_VALUE - MIN_VALUE);
+        t = t < 0 ? 0 : (t > 1 ? 1 : t);
+        ctx.fillStyle = 'hsl(' + (200 - 165 * t).toFixed(1) + ', 78%, 58%)';
+      }
+      ctx.fillRect(x, y, barW, h);
+      if (hot) {
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(x, y - 6, Math.max(1, barW), 6);
+      }
+    }
+  }
+
+  ALGOS.forEach(function (a) {
+    var opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = a.name;
+    ui.algo.appendChild(opt);
+  });
+  ui.algo.value = 'quick';
+
+  ui.play.addEventListener('click', function () {
+    if (st.playing) { pause(); return; }
+    if (st.finished) { resetRun(true); }
+    start();
+  });
+
+  ui.step.addEventListener('click', function () {
+    if (st.playing || st.finished) { return; }
+    if (!applyOne()) { finish(); return; }
+    if (st.cursor >= st.steps.length) { finish(); return; }
+    setStatus('单步中');
+    setSummary('单步：当前显示第 ' + st.applied + ' 步，白色描边为刚处理的元素。');
+    render();
+  });
+
+  ui.reset.addEventListener('click', function () {
+    resetRun(true);
+  });
+
+  ui.size.addEventListener('input', function () {
+    ui.sizeVal.textContent = ui.size.value;
+    resetRun(true);
+  });
+
+  ui.speed.addEventListener('input', function () {
+    ui.speedVal.textContent = ui.speed.value;
+  });
+
+  ui.algo.addEventListener('change', function () {
+    resetRun(false);
+    setSummary('已切换为 <b>' + currentAlgo().name + '</b>：数组保持不变，可直接对比不同算法的比较/写入次数。');
+  });
+
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(fitCanvas).observe(box);
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  resetRun(true);
+  fitCanvas();
+})();
+</script>
+</body>
+</html>
